@@ -1,8 +1,8 @@
 // ============ 1. INCLUDES & CONFIG ============
 #include <WiFi.h>
 
-const char* ssid = "your_ssid"; //replace with real time network credentials
-const char* password = "your_password";
+const char* ssid = "realme P4x 5G b2sd"; //replace with real time network credentials
+const char* password = "nbve8328";
 WiFiServer server(80);
 
 unsigned long lastCmdTime = 0;
@@ -23,7 +23,7 @@ void setup() {
   Serial.begin(115200);
   setupMotors();           // from motor code
 
-  WiFi.begin(ssid, password);
+  WiFi.begin(ssid,password);
   while (WiFi.status() != WL_CONNECTED) { delay(500); Serial.print("."); }
   Serial.println("\nConnected! IP address:");
   Serial.println(WiFi.localIP());
