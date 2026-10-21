@@ -1,0 +1,112 @@
+// ============ 1. INCLUDES & CONFIG ============
+#include <WiFi.h>
+
+const char* ssid = "your_ssid"; //replace with real time network credentials
+const char* password = "your_password";
+WiFiServer server(80);
+
+unsigned long lastCmdTime = 0;
+const unsigned long CMD_TIMEOUT = 20000; // 20s, matches ~13.6s VLM inference + buffer
+
+// Motor A (left)
+#define IN1 26
+#define IN2 27
+#define ENA 25
+// Motor B (right)
+#define IN3 14
+#define IN4 12
+#define ENB 33
+#define MOTOR_SPEED 200
+
+// ============ 2. SETUP (runs once) ============
+void setup() {
+  Serial.begin(115200);
+  setupMotors();           // from motor code
+
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) { delay(500); Serial.print("."); }
+  Serial.println("\nConnected! IP address:");
+  Serial.println(WiFi.localIP());
+  server.begin();
+}
+
+// ============ 3. LOOP (runs forever) ============
+void loop() {
+  WiFiClient client = server.available();
+  if (client) {
+    String req = client.readStringUntil('\r');
+    client.flush();
+
+    String cmd = parseCommand(req);
+    executeCommand(cmd);       // calls motor functions
+    lastCmdTime = millis();
+
+    Serial.print("Received: ");
+    Serial.println(cmd);
+
+    client.println("HTTP/1.1 200 OK");
+    client.println("Connection: close");
+    client.println();
+    client.stop();
+  }
+
+  if (millis() - lastCmdTime > CMD_TIMEOUT) {
+    stopMotors();
+  }
+}
+
+// ============ 4. HELPER FUNCTIONS (WiFi parsing + motors) ============
+String parseCommand(String req) {
+  if (req.indexOf("FORWARD") >= 0) return "FORWARD";
+  if (req.indexOf("LEFT") >= 0) return "LEFT";
+  if (req.indexOf("RIGHT") >= 0) return "RIGHT";
+  if (req.indexOf("SLOW") >= 0) return "SLOW";
+  if (req.indexOf("STOP") >= 0) return "STOP";
+  return "STOP";
+}
+
+void executeCommand(String cmd) {
+  if (cmd == "FORWARD") moveForward();
+  else if (cmd == "LEFT") turnLeft();
+  else if (cmd == "RIGHT") turnRight();
+  else if (cmd == "SLOW") moveSlow();
+  else stopMotors();
+}
+
+void setupMotors() {
+  pinMode(IN1, OUTPUT); pinMode(IN2, OUTPUT);
+  pinMode(IN3, OUTPUT); pinMode(IN4, OUTPUT);
+  pinMode(ENA, OUTPUT); pinMode(ENB, OUTPUT);
+  digitalWrite(IN1, LOW); digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW); digitalWrite(IN4, LOW);
+}
+
+void moveForward() {
+  digitalWrite(IN1, HIGH); digitalWrite(IN2, LOW);
+  digitalWrite(IN3, HIGH); digitalWrite(IN4, LOW);
+  analogWrite(ENA, MOTOR_SPEED); analogWrite(ENB, MOTOR_SPEED);
+}
+
+void turnLeft() {
+  digitalWrite(IN1, LOW); digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, HIGH); digitalWrite(IN4, LOW);
+  analogWrite(ENA, MOTOR_SPEED); analogWrite(ENB, MOTOR_SPEED);
+}
+
+void turnRight() {
+  digitalWrite(IN1, HIGH); digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW); digitalWrite(IN4, HIGH);
+  analogWrite(ENA, MOTOR_SPEED); analogWrite(ENB, MOTOR_SPEED);
+}
+
+void stopMotors() {
+  digitalWrite(IN1, LOW); digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW); digitalWrite(IN4, LOW);
+  analogWrite(ENA, 0); analogWrite(ENB, 0);
+}
+
+void moveSlow() {
+  digitalWrite(IN1, HIGH); digitalWrite(IN2, LOW);
+  digitalWrite(IN3, HIGH); digitalWrite(IN4, LOW);
+  analogWrite(ENA, 100); analogWrite(ENB, 100);
+}
